@@ -4,7 +4,8 @@ const port = 3000;
 const mariadb = require("mariadb");
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
-const { body, param, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
+const axios = require('axios');
 
 const pool = mariadb.createPool({
   host: 'localhost',
@@ -416,6 +417,35 @@ app.delete('/api/customers/:custCode', [
     req.db.release();
   }
 });
+
+app.get(
+  '/say',
+  [
+    query('keyword')
+      .exists().withMessage('keyword query parameter is missing')
+      .isString().withMessage('Keyword must be a string')
+      .escape()
+      .trim()
+      .isLength({ min: 1, max: 100 }).withMessage('Keyword length must be between 1 and 100 characters')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const keyword = req.query.keyword;
+
+    try {
+      const response = await axios.get('https://us-central1-spatial-framing-437923-h2.cloudfunctions.net/my-function', {
+        params: { param: keyword }
+      });
+      res.status(200).json({"response": response.data});
+    } catch (error) {
+      console.error('Error calling function:', error.message);
+    }
+  }
+);
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
